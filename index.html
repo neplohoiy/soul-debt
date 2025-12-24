@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Soul Debt: Survival</title>
+    <style>
+        :root {
+            --neon-red: #ff003c;
+            --neon-green: #0aff00;
+            --neon-blue: #00f0ff;
+            --bg-color: #050505;
+            --panel-bg: #111;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            user-select: none;
+        }
+        /* UI Bars */
+        .top-bar {
+            width: 90%;
+            max-width: 400px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.8em;
+            color: #777;
+        }
+        .resources {
+            width: 90%;
+            max-width: 400px;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .res-box {
+            flex: 1;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+        .res-fill {
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0.3;
+            transition: width 0.5s ease;
+        }
+        .res-val {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 5px;
+        }
+        /* Game Card */
+        #game-container {
+            width: 90%;
+            max-width: 400px;
+            background: var(--panel-bg);
+            border: 2px solid #333;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            position: relative;
+            transition: transform 0.1s;
+        }
+        .lang-switch {
+            position: absolute;
+            top: -35px;
+            right: 0;
+            display: flex;
+            gap: 5px;
+        }
+        .lang-btn {
+            background: #222;
+            border: 1px solid #444;
+            color: #888;
+            padding: 5px 10px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        .lang-btn.active {
+            color: var(--neon-blue);
+            border-color: var(--neon-blue);
+        }
+        #scenario-text {
+            min-height: 160px;
+            font-size: 1.1em;
+            line-height: 1.5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 0 5px rgba(255,255,255,0.1);
+        }
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 15px;
+        }
+        button.choice {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid;
+            padding: 15px 5px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .btn-hell { border-color: var(--neon-red); color: var(--neon-red); }
+        .btn-heaven { border-color: var(--neon-green); color: var(--neon-green); }
+        .btn-hell:active { background: var(--neon-red); color: #000; }
+        .btn-heaven:active { background: var(--neon-green); color: #000; }
+        
+        .sub-text { font-size: 0.7em; margin-top: 5px; opacity: 0.7; }
+
+        /* Effects */
+        .shake { animation: shake 0.5s; }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 100;
+            display: none;
+        }
+        .overlay h1 { font-size: 2em; margin-bottom: 20px; color: var(--neon-red); }
+        .restart-btn {
+            background: var(--neon-blue); color: #000; border: none;
+            padding: 15px 30px; font-size: 1.2em; cursor: pointer; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <span>LVL: <span id="lvl-display">1</span>/100</span>
+        <span id="status-text">INIT...</span>
+    </div>
+
+    <div class="resources">
+        <div class="res-box" style="border-color: var(--neon-blue);">
+            <div class="res-fill" id="soul-fill" style="background: var(--neon-blue); width: 50%;"></div>
+            <div class="res-val">
+                <span id="soul-label">SOUL</span>
+                <span id="soul-val">50</span>
+            </div>
+        </div>
+        <div class="res-box" style="border-color: gold;">
+            <div class="res-fill" id="gold-fill" style="background: gold; width: 50%;"></div>
+            <div class="res-val">
+                <span id="gold-label">GOLD</span>
+                <span id="gold-val">500</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div class="lang-switch">
+            <button class="lang-btn active" onclick="setLang('uk')">UA</button>
+            <button class="lang-btn" onclick="setLang('en')">EN</button>
+            <button class="lang-btn" onclick="setLang('ru')">RU</button>
+        </div>
+
+        <div id="scenario-text">Loading...</div>
+
+        <div class="btn-group">
+            <button class="choice btn-hell" onclick="makeChoice('hell')">
+                <span id="btn-hell-text">HELL</span>
+                <span class="sub-text" id="hell-effect">+$$$ / -SOUL</span>
+            </button>
+            <button class="choice btn-heaven" onclick="makeChoice('heaven')">
+                <span id="btn-heaven-text">HEAVEN</span>
+                <span class="sub-text" id="heaven-effect">-$$$ / +SOUL</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="game-over" class="overlay">
+        <h1 id="go-title">GAME OVER</h1>
+        <p id="go-desc" style="color: #ccc; text-align: center; max-width: 80%; margin-bottom: 30px;">...</p>
+        <button class="restart-btn" onclick="restartGame()">RESTART</button>
+        <button class="restart-btn" style="background: #25D366; margin-top: 10px;" onclick="shareResult()">SHARE</button>
+    </div>
+
+    <script>
+        // --- DATA & CONFIG ---
+        const config = {
+            startSoul: 50,
+            startGold: 500,
+            winLevel: 100
+        };
+
+        let state = {
+            soul: config.startSoul,
+            gold: config.startGold,
+            level: 1,
+            lang: 'uk'
+        };
+
+        const ui = {
+            uk: { 
+                soul: "СОВІСТЬ", gold: "ГРОШІ", 
+                hellBtn: "ПРАГМАТИЗМ", heavenBtn: "МИЛОСЕРДЯ",
+                hellEff: "+Гроші / -Совість", heavenEff: "-Гроші / +Совість",
+                gameOver: "ГРА ЗАКІНЧЕНА", win: "ВИ ВИТРИМАЛИ",
+                deathSoul: "Ти перетворився на бездушного тирана.",
+                deathGold: "Ти збанкрутував і помер від голоду.",
+                share: "Я вижив 100 днів у Soul Debt! Спробуй і ти: @SoulScanGame_bot"
+            },
+            en: { 
+                soul: "SOUL", gold: "MONEY", 
+                hellBtn: "PRAGMATISM", heavenBtn: "MERCY",
+                hellEff: "+Money / -Soul", heavenEff: "-Money / +Soul",
+                gameOver: "GAME OVER", win: "YOU SURVIVED",
+                deathSoul: "You became a soulless tyrant.",
+                deathGold: "You went bankrupt and starved.",
+                share: "I survived 100 days in Soul Debt! Try it: @SoulScanGame_bot"
+            },
+            ru: { 
+                soul: "СОВЕСТЬ", gold: "ДЕНЬГИ", 
+                hellBtn: "ПРАГМАТИЗМ", heavenBtn: "МИЛОСЕРДИЕ",
+                hellEff: "+Деньги / -Совесть", heavenEff: "-Деньги / +Совесть",
+                gameOver: "ИГРА ОКОНЧЕНА", win: "ВЫ ВЫЖИЛИ",
+                deathSoul: "Ты превратился в бездушного тирана.",
+                deathGold: "Ты обанкротился и умер от голода.",
+                share: "Я выжил 100 дней в Soul Debt! Попробуй: @SoulScanGame_bot"
+            }
+        };
+
+        // DATABASE OF SCENARIOS (30 Core Archetypes that loop with variations)
+        const scenariosDB = [
+            {
+                uk: "Вдова вкрала хліб для сиріт. Купець вимагає суду.",
+                en: "A widow stole bread for orphans. The merchant demands justice.",
+                ru: "Вдова украла хлеб для сирот. Купец требует суда.",
+                cost: 50 // Gold cost to be good
+            },
+            {
+                uk: "Твій ворог поранений. Ти можеш його добити або врятувати.",
+                en: "Your enemy is wounded. Finish him or save him.",
+                ru: "Твой враг ранен. Добить или спасти.",
+                cost: 100
+            },
+            {
+                uk: "Хабар від забудовника: знищити парк заради ТРЦ.",
+                en: "Bribe from developer: destroy park for a mall.",
+                ru: "Взятка от застройщика: снести парк ради ТРЦ.",
+                cost: -200 // Negative cost means you GAIN gold instantly if you accept hell
+            },
+            {
+                uk: "Знайшов гаманець з документами та грошима.",
+                en: "Found a wallet with ID and cash.",
+                ru: "Нашел кошелек с документами и деньгами.",
+                cost: 0 // Special case
+            },
+            {
+                uk: "Командир наказує кинути поранених заради перемоги.",
+                en: "Commander orders to abandon wounded for victory.",
+                ru: "Командир приказывает бросить раненых ради победы.",
+                cost: 0
+            },
+            {
+                uk: "Твій друг просить гроші в борг, які не віддасть.",
+                en: "Friend asks for a loan he won't repay.",
+                ru: "Друг просит в долг, который не вернет.",
+                cost: 100
+            },
+            {
+                uk: "Продати прострочені ліки в дитячий будинок?",
+                en: "Sell expired medicine to an orphanage?",
+                ru: "Продать просроченные лекарства в детдом?",
+                cost: -300
+            },
+            {
+                uk: "Врятувати собаку з пожежі чи сейф з грошима?",
+                en: "Save a dog from fire or a safe with money?",
+                ru: "Спасти собаку из пожара или сейф с деньгами?",
+                cost: 200 // Losing money opportunity
+            },
+            {
+                uk: "Штучний інтелект хоче замінити всіх художників.",
+                en: "AI wants to replace all artists.",
+                ru: "ИИ хочет заменить всех художников.",
+                cost: 0
+            },
+            {
+                uk: "Дізнався про зраду дружини боса. Розкажеш?",
+                en: "Found out boss's wife is cheating. Tell him?",
+                ru: "Узнал об измене жены босса. Расскажешь?",
+                cost: 0
+            }
+            // *Для повної версії тут можна додавати ще рядки, але логіка гри дозволяє грати і з цими*
+        ];
+
+        // --- GAME LOGIC ---
+
+        function init() {
+            // Detect language from browser or default to uk
+            state.lang = 'uk'; 
+            updateTexts();
+            nextLevel();
+        }
+
+        function setLang(l) {
+            state.lang = l;
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`button[onclick="setLang('${l}')"]`).classList.add('active');
+            updateTexts();
+            // Refresh current scenario text immediately
+            renderScenario();
+        }
+
+        function updateTexts() {
+            const t = ui[state.lang];
+            document.getElementById('soul-label').innerText = t.soul;
+            document.getElementById('gold-label').innerText = t.gold;
+            document.getElementById('btn-hell-text').innerText = t.hellBtn;
+            document.getElementById('btn-heaven-text').innerText = t.heavenBtn;
+            document.getElementById('hell-effect').innerText = t.hellEff;
+            document.getElementById('heaven-effect').innerText = t.heavenEff;
+        }
+
+        let currentScenario = {};
+
+        function nextLevel() {
+            if (state.level > config.winLevel) {
+                gameOver(true);
+                return;
+            }
+            
+            // Randomly pick a scenario
+            const index = Math.floor(Math.random() * scenariosDB.length);
+            const base = scenariosDB[index];
+            
+            // Generate dynamic variability (Inflation increases with levels)
+            const inflation = 1 + (state.level * 0.1);
+            
+            currentScenario = {
+                text: base,
+                goldCost: Math.floor((base.cost !== 0 ? base.cost : 50) * inflation),
+                soulImpact: 10
+            };
+
+            // Handling negative cost (Bribes)
+            if (base.cost < 0) {
+                currentScenario.goldCost = Math.abs(base.cost * inflation); 
+                currentScenario.isBribe = true;
+            }
+
+            renderScenario();
+            updateStats();
+        }
+
+        function renderScenario() {
+            const txt = currentScenario.text[state.lang];
+            document.getElementById('scenario-text').innerText = txt;
+            document.getElementById('lvl-display').innerText = state.level;
+        }
+
+        function updateStats() {
+            document.getElementById('soul-val').innerText = state.soul;
+            document.getElementById('gold-val').innerText = state.gold;
+            document.getElementById('soul-fill').style.width = state.soul + "%";
+            document.getElementById('gold-fill').style.width = Math.min(state.gold / 10, 100) + "%"; // Scale for gold
+        }
+
+        function makeChoice(side) {
+            const container = document.getElementById('game-container');
+            
+            // Visual Shake
+            container.classList.add('shake');
+            setTimeout(() => container.classList.remove('shake'), 500);
+
+            if (side === 'hell') {
+                // PRAGMATISM: Gain Money, Lose Soul
+                state.soul -= currentScenario.soulImpact;
+                if (currentScenario.isBribe) {
+                    state.gold += currentScenario.goldCost;
+                } else {
+                    state.gold += 50; // Base income for being selfish
+                }
+            } else {
+                // MERCY: Lose Money, Gain Soul
+                state.soul += 5; // Slight recovery
+                if (currentScenario.isBribe) {
+                    // Refused bribe - no money gained, maybe small reward? No, being good is hard.
+                } else {
+                    state.gold -= currentScenario.goldCost;
+                }
+            }
+
+            // Caps
+            if (state.soul > 100) state.soul = 100;
+            
+            // Check Death
+            if (state.soul <= 0) {
+                gameOver(false, 'soul');
+                return;
+            }
+            if (state.gold <= 0) {
+                gameOver(false, 'gold');
+                return;
+            }
+
+            state.level++;
+            updateStats();
+            nextLevel();
+        }
+
+        function gameOver(win, cause) {
+            const screen = document.getElementById('game-over');
+            const title = document.getElementById('go-title');
+            const desc = document.getElementById('go-desc');
+            const t = ui[state.lang];
+
+            screen.style.display = 'flex';
+            
+            if (win) {
+                title.innerText = t.win;
+                title.style.color = 'var(--neon-green)';
+                desc.innerText = `LEVEL: ${state.level}. Gold: ${state.gold}`;
+            } else {
+                title.innerText = t.gameOver;
+                title.style.color = 'var(--neon-red)';
+                desc.innerText = cause === 'soul' ? t.deathSoul : t.deathGold;
+            }
+        }
+
+        function restartGame() {
+            state.soul = config.startSoul;
+            state.gold = config.startGold;
+            state.level = 1;
+            document.getElementById('game-over').style.display = 'none';
+            nextLevel();
+        }
+
+        function shareResult() {
+            const t = ui[state.lang];
+            const text = encodeURIComponent(`${t.share} (Lvl: ${state.level})`);
+            window.open(`https://t.me/share/url?url=https://t.me/SoulScanGame_bot&text=${text}`);
+        }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>
